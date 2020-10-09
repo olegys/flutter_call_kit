@@ -248,12 +248,15 @@ static CXProvider* sharedProvider;
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
     switch ([reason intValue]) {
         case CXCallEndedReasonFailed:
+            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonFailed];
             break;
         case CXCallEndedReasonRemoteEnded:
+            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonRemoteEnded];
             break;
         case CXCallEndedReasonUnanswered:
+            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
             break;
         case CXCallEndedReasonAnsweredElsewhere:
@@ -583,7 +586,6 @@ continueUserActivity:(NSUserActivity *)userActivity
     NSLog(@"[FlutterCallKitPlugin][CXProviderDelegate][provider:performEndCallAction]");
 #endif
     [_channel invokeMethod:kPerformEndCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
-    [self endCallOnServer];
     [action fulfill];
 }
 

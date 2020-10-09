@@ -60,7 +60,7 @@ typedef Future<dynamic> OnStartCall(String handle, bool video);
 
 enum HandleType { phoneNumber, generic, email }
 
-enum EndReason { failed, remoteEnded, unanswered,  }
+enum EndReason { failed, remoteEnded, unanswered, answeredAnotherDevice }
 
 class IOSOptions {
   ///  It will be displayed on system UI when incoming calls received
@@ -442,6 +442,8 @@ class FlutterCallKit {
         return 2;
       case EndReason.unanswered:
         return 3;
+      case EndReason.answeredAnotherDevice:
+        return 4;
       default:
         return 1;
     }
