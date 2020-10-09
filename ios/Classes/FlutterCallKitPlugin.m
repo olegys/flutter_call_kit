@@ -20,6 +20,8 @@ static NSString *const kDidPerformDTMFAction = @"didPerformDTMFAction";
 static NSString *const kDidToggleHoldAction = @"didToggleHoldAction";
 
 static NSString *const kProviderReset = @"onProviderReset";
+static NSString *callerName;
+static void (^callEndCompletion)(BOOL);
 
 NSString *const kIncomingCallNotification = @"incomingCallNotification";
 
@@ -157,7 +159,7 @@ static CXProvider* sharedProvider;
     NSString* handleType = arguments[@"handleType"];
     NSNumber* video = arguments[@"video"];
     NSString* localizedCallerName = arguments[@"localizedCallerName"];
-    [FlutterCallKitPlugin reportNewIncomingCall:uuidString handle:handle handleType:handleType hasVideo:[video boolValue] localizedCallerName:localizedCallerName fromPushKit:NO];
+    [FlutterCallKitPlugin reportNewIncomingCall:uuidString handle:handle handleType:handleType hasVideo:[video boolValue] localizedCallerName:localizedCallerName fromPushKit:NO callEndCompletion:nil];
     result(nil);
 }
 
@@ -384,8 +386,8 @@ static CXProvider* sharedProvider;
     NSLog(@"[FlutterCallKitPlugin][getProviderConfiguration]");
 #endif
     CXProviderConfiguration *providerConfiguration = [[CXProviderConfiguration alloc] initWithLocalizedName:settings[@"appName"]];
-    providerConfiguration.supportsVideo = YES;
-    providerConfiguration.maximumCallGroups = 3;
+    providerConfiguration.supportsVideo = NO;
+    providerConfiguration.maximumCallGroups = 1;
     providerConfiguration.maximumCallsPerCallGroup = 1;
     providerConfiguration.supportedHandleTypes = [NSSet setWithObjects:[NSNumber numberWithInteger:CXHandleTypePhoneNumber], nil];
     if (settings[@"supportsVideo"]) {
@@ -473,9 +475,9 @@ continueUserActivity:(NSUserActivity *)userActivity
     
     if (handle != nil && handle.length > 0 ){
         NSDictionary *userInfo = @{
-                                   @"handle": handle,
-                                   @"video": @(isVideoCall)
-                                   };
+            @"handle": handle,
+            @"video": @(isVideoCall)
+        };
         if (_isConfigured) {
             [_channel invokeMethod:kHandleStartCallNotification arguments:userInfo];
         } else {
@@ -492,10 +494,14 @@ continueUserActivity:(NSUserActivity *)userActivity
                      hasVideo:(BOOL)hasVideo
           localizedCallerName:(NSString * _Nullable)localizedCallerName
                   fromPushKit:(BOOL)fromPushKit
+            callEndCompletion:(void (^_Nullable)(BOOL))completion;
+
 {
 #ifdef DEBUG
     NSLog(@"[FlutterCallKitPlugin][reportNewIncomingCall] uuidString = %@, handle = %@, handleType = %@, hasVideo = %@, localizedCallerName = %@, fromPushKit = %@", uuidString, handle, handleType, @(hasVideo), localizedCallerName, @(fromPushKit) );
 #endif
+    callerName = handle;
+    callEndCompletion = completion;
     int _handleType = [FlutterCallKitPlugin getHandleType:handleType];
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
     NSLog(@"[FlutterCallKitPlugin][reportNewIncomingCall] uuid = %@", uuid );
@@ -518,9 +524,9 @@ continueUserActivity:(NSUserActivity *)userActivity
 
 - (void)handleNewIncomingCall:(NSNotification *)notification
 {
-    #ifdef DEBUG
-        NSLog(@"[FlutterCallKitPlugin] handleNewIncomingCall notification.userInfo = %@", notification.userInfo);
-    #endif
+#ifdef DEBUG
+    NSLog(@"[FlutterCallKitPlugin] handleNewIncomingCall notification.userInfo = %@", notification.userInfo);
+#endif
     if (_isConfigured) {
         [_channel invokeMethod:kDidDisplayIncomingCall arguments:notification.userInfo];
     } else {
@@ -577,6 +583,7 @@ continueUserActivity:(NSUserActivity *)userActivity
     NSLog(@"[FlutterCallKitPlugin][CXProviderDelegate][provider:performEndCallAction]");
 #endif
     [_channel invokeMethod:kPerformEndCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+    [self endCallOnServer];
     [action fulfill];
 }
 
@@ -622,7 +629,7 @@ continueUserActivity:(NSUserActivity *)userActivity
     = @{
         AVAudioSessionInterruptionTypeKey: [NSNumber numberWithInt:AVAudioSessionInterruptionTypeEnded],
         AVAudioSessionInterruptionOptionKey: [NSNumber numberWithInt:AVAudioSessionInterruptionOptionShouldResume]
-        };
+    };
     [[NSNotificationCenter defaultCenter] postNotificationName:AVAudioSessionInterruptionNotification object:nil userInfo:userInfo];
     
     [self configureAudioSession];
@@ -636,4 +643,28 @@ continueUserActivity:(NSUserActivity *)userActivity
 #endif
     [_channel invokeMethod:kDidDeactivateAudioSession arguments:nil];
 }
+
+- (void)endCallOnServer {
+    NSArray *components = [callerName componentsSeparatedByString:@"_"];
+    NSString *callerId = [components objectAtIndex:1];
+    
+    NSString *urlString = [NSString stringWithFormat:@"https://new.nexel.com/api/phone-call/cancel-phone-call?id=%@", callerId];
+    NSURL *url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    NSString *accessToken = [[NSUserDefaults standardUserDefaults] stringForKey:@"flutter.USER_AUTH_TOKEN"];
+    NSString *bearer = [NSString stringWithFormat:@"Bearer %@", accessToken];
+    [request setHTTPMethod:@"GET"];
+    [request setValue:bearer forHTTPHeaderField:@"Authorization"];
+    
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (callEndCompletion) {
+            callEndCompletion(response != nil);
+        }
+    }] resume];
+    
+}
+
 @end
+
+
+

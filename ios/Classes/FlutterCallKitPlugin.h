@@ -12,5 +12,6 @@
                    handleType:(NSString *)handleType
                      hasVideo:(BOOL)hasVideo
           localizedCallerName:(NSString * _Nullable)localizedCallerName
-                  fromPushKit:(BOOL)fromPushKit;
+                  fromPushKit:(BOOL)fromPushKit
+            callEndCompletion:(void (^_Nullable)(BOOL))completion;
 @end
