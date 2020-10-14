@@ -21,6 +21,8 @@ static NSString *const kDidToggleHoldAction = @"didToggleHoldAction";
 
 static NSString *const kProviderReset = @"onProviderReset";
 static NSString *callerName;
+static BOOL *needEndCall = YES;
+
 static void (^callEndCompletion)(BOOL);
 
 NSString *const kIncomingCallNotification = @"incomingCallNotification";
@@ -154,6 +156,7 @@ static CXProvider* sharedProvider;
 #pragma mark - CXCallController call actions
 - (void)displayIncomingCall:(NSDictionary *)arguments result:(FlutterResult)result
 {
+    needEndCall = YES;
     NSString* uuidString = arguments[@"uuid"];
     NSString* handle = arguments[@"handle"];
     NSString* handleType = arguments[@"handleType"];
@@ -192,7 +195,6 @@ static CXProvider* sharedProvider;
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
     CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:uuid];
     CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
-    
     [self requestTransaction:transaction result:result];
 }
 
@@ -201,6 +203,7 @@ static CXProvider* sharedProvider;
 #ifdef DEBUG
     NSLog(@"[FlutterCallKitPlugin][endAllCalls] calls = %@", self.callKitCallController.callObserver.calls);
 #endif
+    needEndCall = NO;
     for (CXCall *call in self.callKitCallController.callObserver.calls) {
         CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:call.UUID];
         CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
@@ -248,15 +251,14 @@ static CXProvider* sharedProvider;
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
     switch ([reason intValue]) {
         case CXCallEndedReasonFailed:
-            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonFailed];
             break;
         case CXCallEndedReasonRemoteEnded:
-            [self endCallOnServer];
+//            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonRemoteEnded];
             break;
         case CXCallEndedReasonUnanswered:
-            [self endCallOnServer];
+//            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
             break;
         case CXCallEndedReasonAnsweredElsewhere:
@@ -585,8 +587,9 @@ continueUserActivity:(NSUserActivity *)userActivity
 #ifdef DEBUG
     NSLog(@"[FlutterCallKitPlugin][CXProviderDelegate][provider:performEndCallAction]");
 #endif
-    [_channel invokeMethod:kPerformEndCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
-    [action fulfill];
+    [_channel invokeMethod:kPerformEndCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString]} result:^(id  _Nullable result) {
+        [action fulfill];
+    }];
 }
 
 -(void)provider:(CXProvider *)provider performSetHeldCallAction:(CXSetHeldCallAction *)action
@@ -649,7 +652,7 @@ continueUserActivity:(NSUserActivity *)userActivity
 - (void)endCallOnServer {
     NSArray *components = [callerName componentsSeparatedByString:@"_"];
     NSString *callerId = [components objectAtIndex:1];
-    
+
     NSString *urlString = [NSString stringWithFormat:@"https://new.nexel.com/api/phone-call/cancel-phone-call?id=%@", callerId];
     NSURL *url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
@@ -657,13 +660,13 @@ continueUserActivity:(NSUserActivity *)userActivity
     NSString *bearer = [NSString stringWithFormat:@"Bearer %@", accessToken];
     [request setHTTPMethod:@"GET"];
     [request setValue:bearer forHTTPHeaderField:@"Authorization"];
-    
+
     [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
         if (callEndCompletion) {
             callEndCompletion(response != nil);
         }
     }] resume];
-    
+
 }
 
 @end
