@@ -15,7 +15,7 @@ typedef Future<dynamic> OnReceiveStartCallAction(String uuid, String handle);
 /// User answer the incoming call
 ///
 /// [uuid]- The UUID of the call that is to be answered.
-typedef Future<dynamic> OnAnswerCallAction(String uuid);
+typedef Future<dynamic> OnAnswerCallAction();
 
 /// User finish the call.
 ///
@@ -189,8 +189,7 @@ class FlutterCallKit {
         if (_performAnswerCallAction == null) {
           return null;
         }
-        return _performAnswerCallAction(
-            call.arguments.cast<String, dynamic>()["callUUID"]);
+        return _performAnswerCallAction();
       case "performEndCallAction":
         if (_performEndCallAction == null) {
           return null;

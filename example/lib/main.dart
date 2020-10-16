@@ -58,7 +58,7 @@ class _MyAppState extends State<MyApp> {
     // You can now start a call from within your app
   }
 
-  Future<void> _performAnswerCallAction(String uuid) async {
+  Future<void> _performAnswerCallAction() async {
     // Called when the user answers an incoming call
   }
 
