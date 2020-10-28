@@ -21,7 +21,6 @@ static NSString *const kDidToggleHoldAction = @"didToggleHoldAction";
 
 static NSString *const kProviderReset = @"onProviderReset";
 static NSString *callerName;
-static BOOL *needEndCall = YES;
 
 static void (^callEndCompletion)(BOOL);
 
@@ -156,7 +155,6 @@ static CXProvider* sharedProvider;
 #pragma mark - CXCallController call actions
 - (void)displayIncomingCall:(NSDictionary *)arguments result:(FlutterResult)result
 {
-    needEndCall = YES;
     NSString* uuidString = arguments[@"uuid"];
     NSString* handle = arguments[@"handle"];
     NSString* handleType = arguments[@"handleType"];
@@ -203,7 +201,6 @@ static CXProvider* sharedProvider;
 #ifdef DEBUG
     NSLog(@"[FlutterCallKitPlugin][endAllCalls] calls = %@", self.callKitCallController.callObserver.calls);
 #endif
-    needEndCall = NO;
     for (CXCall *call in self.callKitCallController.callObserver.calls) {
         CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:call.UUID];
         CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
@@ -262,7 +259,7 @@ static CXProvider* sharedProvider;
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
             break;
         case CXCallEndedReasonAnsweredElsewhere:
-            [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
+            [self endAllCalls:result];
             break;
         case CXCallEndedReasonDeclinedElsewhere:
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
@@ -577,8 +574,9 @@ continueUserActivity:(NSUserActivity *)userActivity
     NSLog(@"[FlutterCallKitPlugin][CXProviderDelegate][provider:performAnswerCallAction]");
 #endif
     [self configureAudioSession];
-    [_channel invokeMethod:kPerformAnswerCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
-    [action fulfill];
+    [_channel invokeMethod:kPerformAnswerCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString]} result:^(id  _Nullable result) {
+        [action fulfill];
+    }];
 }
 
 // Ending incoming call
