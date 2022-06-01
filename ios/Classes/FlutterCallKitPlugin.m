@@ -255,16 +255,19 @@ static CXProvider* sharedProvider;
         case CXCallEndedReasonRemoteEnded:
 //            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonRemoteEnded];
+            [self endAllCalls:result];
             break;
         case CXCallEndedReasonUnanswered:
 //            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
+            [self endAllCalls:result];
             break;
         case CXCallEndedReasonAnsweredElsewhere:
             [self endAllCalls:result];
             break;
         case CXCallEndedReasonDeclinedElsewhere:
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
+            [self endAllCalls:result];
             break;
         default:
             break;
