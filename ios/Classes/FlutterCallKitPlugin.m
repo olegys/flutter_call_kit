@@ -537,13 +537,13 @@ continueUserActivity:(NSUserActivity *)userActivity
     NSTimeInterval delayInSeconds = 5.0;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
     dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
-    if(self.callIsStarted == NO) {
+    //if(self.callIsStarted == NO) {
             for (CXCall *call in self.callKitCallController.callObserver.calls) {
                 CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:call.UUID];
                 CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
                 [self requestTransaction:transaction result:nil];
             }
-         }
+        // }
 
     });
     
