@@ -26,6 +26,8 @@ static void (^callEndCompletion)(BOOL);
 
 NSString *const kIncomingCallNotification = @"incomingCallNotification";
 
+BOOL callIsStarted = NO;
+
 static FlutterError *getFlutterError(NSError *error) {
     if (error == nil) return nil;
     return [FlutterError errorWithCode:[NSString stringWithFormat:@"Error %ld", error.code]
@@ -531,6 +533,19 @@ continueUserActivity:(NSUserActivity *)userActivity
     callUpdate.supportsUngrouping = YES;
     callUpdate.hasVideo = hasVideo;
     callUpdate.localizedCallerName = localizedCallerName;
+
+    NSTimeInterval delayInSeconds = 5.0;
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+    dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+    if(self.callIsStarted == NO) {
+            for (CXCall *call in self.callKitCallController.callObserver.calls) {
+                CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:call.UUID];
+                CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
+                [self requestTransaction:transaction result:nil];
+            }
+         }
+
+    });
     
     [FlutterCallKitPlugin initCallKitProvider];
     [sharedProvider reportNewIncomingCallWithUUID:uuid update:callUpdate completion:^(NSError * _Nullable error) {
@@ -589,6 +604,7 @@ continueUserActivity:(NSUserActivity *)userActivity
 #ifdef DEBUG
     NSLog(@"[FlutterCallKitPlugin][CXProviderDelegate][provider:performAnswerCallAction]");
 #endif
+    self.callIsStarted = YES
     [self configureAudioSession];
     [_channel invokeMethod:kPerformAnswerCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString]} result:^(id  _Nullable result) {
         [action fulfill];
@@ -601,6 +617,7 @@ continueUserActivity:(NSUserActivity *)userActivity
 #ifdef DEBUG
     NSLog(@"[FlutterCallKitPlugin][CXProviderDelegate][provider:performEndCallAction]");
 #endif
+    self.callIsStarted = NO
     [_channel invokeMethod:kPerformEndCallAction arguments:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString]} result:^(id  _Nullable result) {
         [action fulfill];
     }];
