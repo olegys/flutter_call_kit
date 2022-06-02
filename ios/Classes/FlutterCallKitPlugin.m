@@ -96,6 +96,11 @@ static CXProvider* sharedProvider;
         NSLog(@"[FlutterCallKitPlugin][checkIfBusy]");
 #endif
         result(@(self.callKitCallController.callObserver.calls.count > 0));
+            } else if ([@"getActiveCallsCount" isEqualToString:method]) {
+        #ifdef DEBUG
+                NSLog(@"[FlutterCallKitPlugin][getActiveCallsCount]");
+        #endif
+                result(@(self.callKitCallController.callObserver.calls.count ));
     }else if ([@"checkSpeaker" isEqualToString:method]) {
 #ifdef DEBUG
         NSLog(@"[FlutterCallKitPlugin][checkSpeaker]");
@@ -255,12 +260,10 @@ static CXProvider* sharedProvider;
         case CXCallEndedReasonRemoteEnded:
 //            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonRemoteEnded];
-            [self endAllCalls:result];
             break;
         case CXCallEndedReasonUnanswered:
 //            [self endCallOnServer];
             [self.callKitProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonUnanswered];
-            [self endAllCalls:result];
             break;
         case CXCallEndedReasonAnsweredElsewhere:
             [self endAllCalls:result];

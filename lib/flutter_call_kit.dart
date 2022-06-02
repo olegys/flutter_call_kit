@@ -62,7 +62,6 @@ enum HandleType { phoneNumber, generic, email }
 
 enum EndReason { failed, remoteEnded, unanswered, answeredAnotherDevice }
 
-
 class IOSOptions {
   ///  It will be displayed on system UI when incoming calls received
   final String appName;
@@ -375,6 +374,15 @@ class FlutterCallKit {
       return null;
     }
     return await _channel.invokeMethod<void>('checkIfBusy') as bool;
+  }
+
+  /// Returns active call count
+  ///
+  Future<int> getActiveCallsCount() async {
+    if (!Platform.isIOS) {
+      return null;
+    }
+    return await _channel.invokeMethod<void>('getActiveCallsCount') as int;
   }
 
   /// Checks if the device speaker is on and returns a promise with a boolean value (`true` if speaker is on, `false` otherwise).
